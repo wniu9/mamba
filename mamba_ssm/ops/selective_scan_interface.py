@@ -52,6 +52,17 @@ class SelectiveScanFn(torch.autograd.Function):
             return out_z if not return_last_state else (out_z, last_state)
 
     @staticmethod
+    def symbolic(g: torch.Graph, u: torch.Value, delta: torch.Value, 
+                 A: torch.Value, B: torch.Value, C: torch.Value, D=None, 
+                 z=None, delta_bias=None, delta_softplus=False, return_last_state=False) -> torch.Value:
+        return g.op("mamba::CustomScan",
+                    u, delta, B, C, A, D, z, delta_bias,
+                    delta_bias_i=int(delta_bias != None),
+                    delta_softplus_i=int(delta_softplus),
+                    return_last_state_i=int(return_last_state)
+                ).setType(u.type().with_dtype(torch.float32).with_sizes(u.type().sizes()))
+
+    @staticmethod
     def backward(ctx, dout, *args):
         if not ctx.has_z:
             u, delta, A, B, C, D, delta_bias, x = ctx.saved_tensors
@@ -158,6 +169,20 @@ def selective_scan_ref(u, delta, A, B, C, D=None, z=None, delta_bias=None, delta
 
 
 class MambaInnerFn(torch.autograd.Function):
+
+    @staticmethod
+    def symbolic(g: torch.Graph, xz, conv1d_weight, conv1d_bias, x_proj_weight, delta_proj_weight,
+                out_proj_weight, out_proj_bias,
+                A, B=None, C=None, D=None, delta_bias=None, B_proj_bias=None,
+                C_proj_bias=None, delta_softplus=True, checkpoint_lvl=1) -> torch.Value:
+        assert B is None and C is None
+        assert B_proj_bias is None and C_proj_bias is None
+        assert out_proj_bias is None
+        return g.op("mamba::MambaInnerFn",
+                    xz, conv1d_weight, conv1d_bias, x_proj_weight, delta_proj_weight,
+                    out_proj_weight, A, D, delta_bias,
+                    delta_softplus_i=int(delta_softplus), checkpoint_lvl_i=checkpoint_lvl
+                ).setType(xz.type().with_dtype(torch.float32).with_sizes(xz.type().sizes()))
 
     @staticmethod
     @custom_fwd

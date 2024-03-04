@@ -491,6 +491,9 @@ class RMSNorm(torch.nn.Module):
         torch.nn.init.ones_(self.weight)
 
     def forward(self, x, residual=None, prenorm=False, residual_in_fp32=False):
+        from mamba_ssm.models.config_mamba import export_2_onnx
+        if export_2_onnx:
+            return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps) * self.weight
         return rms_norm_fn(
             x,
             self.weight,

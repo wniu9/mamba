@@ -16,6 +16,8 @@ try:
     from causal_conv1d import causal_conv1d_fn, causal_conv1d_update
 except ImportError:
     causal_conv1d_fn, causal_conv1d_update = None, None
+from mamba_ssm.models.config_mamba import export_2_onnx
+causal_conv1d_fn = None if export_2_onnx else causal_conv1d_fn
 
 try:
     from mamba_ssm.ops.triton.selective_state_update import selective_state_update
@@ -29,6 +31,18 @@ except ImportError:
 
 
 class Mamba(nn.Module):
+    attr_d_model: int
+    attr_d_inner: int
+    attr_dt_rank: int
+    attr_d_state: int
+    attr_expand_factor: int
+    attr_d_conv: int
+    attr_dt_min: float
+    attr_dt_max: float
+    attr_dt_scale: float
+    attr_bias: bool
+    attr_conv_bias: bool
+    mamba_type: int
     def __init__(
         self,
         d_model,
@@ -50,6 +64,7 @@ class Mamba(nn.Module):
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
+        use_fast_path = use_fast_path and not export_2_onnx
         self.d_model = d_model
         self.d_state = d_state
         self.d_conv = d_conv
@@ -58,6 +73,18 @@ class Mamba(nn.Module):
         self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
         self.use_fast_path = use_fast_path
         self.layer_idx = layer_idx
+        self.attr_d_model = self.d_model
+        self.attr_d_inner = self.d_inner
+        self.attr_dt_rank = self.dt_rank
+        self.attr_d_state = self.d_state
+        self.attr_expand_factor = self.expand
+        self.attr_d_conv = self.d_conv
+        self.attr_dt_min = dt_min
+        self.attr_dt_max = dt_max
+        self.attr_dt_scale = dt_scale
+        self.attr_bias = bias
+        self.attr_conv_bias = conv_bias
+        self.mamba_type = 1
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
 

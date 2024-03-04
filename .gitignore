@@ -2,3 +2,5 @@
 *.egg-info/
 build/
 **.so
+onnx/
+export2onnx.py

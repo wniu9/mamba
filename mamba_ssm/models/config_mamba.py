@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 
+export_2_onnx: bool = True
 @dataclass
 class MambaConfig:
 
@@ -13,3 +14,6 @@ class MambaConfig:
     fused_add_norm: bool = True
     pad_vocab_size_multiple: int = 8
     tie_embeddings: bool = True
+
+    def __post_init__(self):
+        self.fused_add_norm = self.fused_add_norm and not export_2_onnx
